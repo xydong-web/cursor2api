@@ -16,6 +16,7 @@ import type {
 import { convertToCursorRequest, parseToolCalls, hasToolCalls } from './converter.js';
 import { sendCursorRequest, sendCursorRequestFull } from './cursor-client.js';
 import { getConfig } from './config.js';
+import { applyVisionInterceptor } from './vision.js';
 
 function msgId(): string {
     return 'msg_' + uuidv4().replace(/-/g, '').substring(0, 24);
@@ -264,6 +265,8 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
     console.log(`[Handler] 收到请求: model=${body.model}, messages=${body.messages?.length}, stream=${body.stream}, tools=${body.tools?.length ?? 0}`);
 
     try {
+        await applyVisionInterceptor(body.messages);
+
         if (isIdentityProbe(body)) {
             console.log(`[Handler] 拦截到身份探针，返回模拟响应以规避风控`);
             if (body.stream) {

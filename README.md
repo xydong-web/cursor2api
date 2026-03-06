@@ -27,6 +27,7 @@
 
 - **Anthropic Messages API 完整兼容** - `/v1/messages` 流式/非流式
 - **OpenAI Chat Completions API 兼容** - `/v1/chat/completions` 流式/非流式 + 工具调用
+- **多模态视觉降级处理** - 内置纯本地 CPU OCR 图片文字提取（零配置免 Key），或支持外接第三方免费视觉大模型 API 解释图片。
 - **Cursor IDE 场景融合提示词注入** - 不覆盖模型身份，顺应 Cursor 内部角色设定
 - **全工具支持** - 无工具白名单限制，支持所有 MCP 工具和自定义扩展
 - **多层拒绝拦截** - 自动检测和抑制 Cursor 文档助手的拒绝行为
@@ -48,6 +49,8 @@ npm install
 编辑 `config.yaml`：
 - `cursor_model` - 使用的模型（默认 `anthropic/claude-sonnet-4.6`）
 - `fingerprint.user_agent` - 浏览器 User-Agent（模拟 Chrome 请求）
+- `vision.enabled` - 开启视觉拦截 (`true` 发送图片前进行降级处理)。
+- `vision.mode` - 视觉模式。推荐 `ocr` (全自动零配置文字提取)。如需真视觉理解改为 `api` 并配置 `baseUrl` 和 `apiKey` 后接入 Gemini/OpenRouter 等。
 
 ### 3. 启动
 
@@ -137,6 +140,14 @@ AI 按此格式输出 → 我们解析并转换为标准的 Anthropic `tool_use`
 | **L4: 响应清洗** | `handler.ts` | `sanitizeResponse()` 对所有输出做后处理，将 Cursor 身份引用替换为 Claude |
 
 ## 更新日志
+
+### v2.3.0 (2026-03-06) — 多模态视觉拦截与降级支持
+
+**👁️ 视觉降级护航**
+- ✨ 完美解决免费版 Cursor 接口原生不支持图片（抛出 `I cannot view images` 拒绝错误）的痛点。
+- ✨ **开箱即用的纯本地 OCR (`mode: 'ocr'`)**：零配置、免 API Key，利用本机 CPU 毫秒级提取图片/截图中的报错堆栈或代码文本，并无缝重组成上下文发送给大模型处理。
+- ✨ **兼容第三方的外部视觉 API (`mode: 'api'`)**：支持无缝转接 Google Gemini、OpenRouter 等全网免费开源的高级视觉大模型格式，提供超越 OCR 的页面 UI 理解和色彩分析。
+- ✨ 在 Anthropic 和 OpenAI 两种主流请求协议下，自动精准拦截 Base64 和 URL 格式的图片流组合逻辑。
 
 ### v2.2.0 (2026-03-05) — 身份保护 + 代码精简
 

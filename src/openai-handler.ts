@@ -24,6 +24,7 @@ import type {
 import { convertToCursorRequest, parseToolCalls, hasToolCalls } from './converter.js';
 import { sendCursorRequest, sendCursorRequestFull } from './cursor-client.js';
 import { getConfig } from './config.js';
+import { applyVisionInterceptor } from './vision.js';
 
 function chatId(): string {
     return 'chatcmpl-' + uuidv4().replace(/-/g, '').substring(0, 24);
@@ -60,9 +61,11 @@ function convertToAnthropicRequest(body: OpenAIChatRequest): AnthropicRequest {
             case 'assistant': {
                 // 助手消息可能包含 tool_calls
                 const blocks: AnthropicContentBlock[] = [];
-                const textContent = extractOpenAIContent(msg);
-                if (textContent) {
-                    blocks.push({ type: 'text', text: textContent });
+                const contentBlocks = extractOpenAIContentBlocks(msg);
+                if (typeof contentBlocks === 'string' && contentBlocks) {
+                    blocks.push({ type: 'text', text: contentBlocks });
+                } else if (Array.isArray(contentBlocks)) {
+                    blocks.push(...contentBlocks);
                 }
 
                 if (msg.tool_calls && msg.tool_calls.length > 0) {
@@ -84,7 +87,7 @@ function convertToAnthropicRequest(body: OpenAIChatRequest): AnthropicRequest {
 
                 messages.push({
                     role: 'assistant',
-                    content: blocks.length > 0 ? blocks : (textContent || ''),
+                    content: blocks.length > 0 ? blocks : (typeof extractOpenAIContentBlocks(msg) === 'string' ? extractOpenAIContentBlocks(msg) as string : ''),
                 });
                 break;
             }
@@ -127,18 +130,46 @@ function convertToAnthropicRequest(body: OpenAIChatRequest): AnthropicRequest {
 }
 
 /**
- * 从 OpenAI 消息中提取文本内容
+ * 从 OpenAI 消息中提取文本或多模态内容块
  */
-function extractOpenAIContent(msg: OpenAIMessage): string {
+function extractOpenAIContentBlocks(msg: OpenAIMessage): string | AnthropicContentBlock[] {
     if (msg.content === null || msg.content === undefined) return '';
     if (typeof msg.content === 'string') return msg.content;
     if (Array.isArray(msg.content)) {
-        return msg.content
-            .filter(p => p.type === 'text' && p.text)
-            .map(p => p.text!)
-            .join('\n');
+        const blocks: AnthropicContentBlock[] = [];
+        for (const p of msg.content) {
+            if (p.type === 'text' && p.text) {
+                blocks.push({ type: 'text', text: p.text });
+            } else if (p.type === 'image_url' && p.image_url?.url) {
+                const url = p.image_url.url;
+                if (url.startsWith('data:')) {
+                    const match = url.match(/^data:([^;]+);base64,(.+)$/);
+                    if (match) {
+                        blocks.push({
+                            type: 'image',
+                            source: { type: 'base64', media_type: match[1], data: match[2] }
+                        });
+                    }
+                } else {
+                    blocks.push({
+                        type: 'image',
+                        source: { type: 'url', media_type: 'image/jpeg', data: url }
+                    });
+                }
+            }
+        }
+        return blocks.length > 0 ? blocks : '';
     }
     return String(msg.content);
+}
+
+/**
+ * 仅提取纯文本（用于系统提示词和旧行为）
+ */
+function extractOpenAIContent(msg: OpenAIMessage): string {
+    const blocks = extractOpenAIContentBlocks(msg);
+    if (typeof blocks === 'string') return blocks;
+    return blocks.filter(b => b.type === 'text').map(b => b.text).join('\n');
 }
 
 // ==================== 主处理入口 ====================
@@ -151,6 +182,9 @@ export async function handleOpenAIChatCompletions(req: Request, res: Response): 
     try {
         // Step 1: OpenAI → Anthropic 格式
         const anthropicReq = convertToAnthropicRequest(body);
+
+        // Step 1.5: 应用视觉拦截器（如果启用，会将 anthropicReq 中的 image 转换为 text）
+        await applyVisionInterceptor(anthropicReq.messages);
 
         // Step 2: Anthropic → Cursor 格式（复用现有管道）
         const cursorReq = convertToCursorRequest(anthropicReq);

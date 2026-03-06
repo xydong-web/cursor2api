@@ -20,6 +20,8 @@ export interface AnthropicMessage {
 export interface AnthropicContentBlock {
     type: 'text' | 'tool_use' | 'tool_result' | 'image';
     text?: string;
+    // image fields
+    source?: { type: string; media_type?: string; data: string };
     // tool_use fields
     id?: string;
     name?: string;
@@ -91,6 +93,13 @@ export interface AppConfig {
     timeout: number;
     proxy?: string;
     cursorModel: string;
+    vision?: {
+        enabled: boolean;
+        mode: 'ocr' | 'api';
+        baseUrl: string;
+        apiKey: string;
+        model: string;
+    };
     fingerprint: {
         userAgent: string;
     };
