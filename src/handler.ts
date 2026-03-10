@@ -400,6 +400,30 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
     }
 }
 
+// ==================== 截断检测 ====================
+
+/**
+ * 检测响应是否被 Cursor 上下文窗口截断
+ * 截断症状：响应以句中断句结束，没有完整的句号/block 结束标志
+ * 这是导致 Claude Code 频繁出现"继续"的根本原因
+ */
+export function isTruncated(text: string): boolean {
+    if (!text || text.trim().length === 0) return false;
+    const trimmed = text.trimEnd();
+    // 代码块未闭合
+    const codeBlockOpen = (trimmed.match(/```/g) || []).length % 2 !== 0;
+    if (codeBlockOpen) return true;
+    // XML/HTML 标签未闭合 (Cursor 有时在中途截断)
+    const openTags = (trimmed.match(/^<[a-zA-Z]/gm) || []).length;
+    const closeTags = (trimmed.match(/^<\/[a-zA-Z]/gm) || []).length;
+    if (openTags > closeTags + 1) return true;
+    // 以逗号、分号、冒号、开括号结尾（明显未完成）
+    if (/[,;:\[{(]\s*$/.test(trimmed)) return true;
+    // 短响应且以小写字母结尾（句子被截断的强烈信号）
+    if (trimmed.length < 500 && /[a-z]$/.test(trimmed)) return false; // 短响应不判断
+    return false;
+}
+
 // ==================== 重试辅助 ====================
 export const MAX_REFUSAL_RETRIES = 2;
 
@@ -513,8 +537,10 @@ async function handleStream(res: Response, cursorReq: CursorChatRequest, body: A
                     fullResponse = CLAUDE_IDENTITY_RESPONSE;
                 }
             } else {
-                console.log(`[Handler] 工具模式下拒绝且无工具调用，引导模型输出`);
-                fullResponse = 'I understand the request. Let me analyze the information and proceed with the appropriate action.';
+                // 工具模式拒绝：不返回纯文本（会让 Claude Code 误认为任务完成）
+                // 返回一个合理的纯文本，让它以 end_turn 结束，Claude Code 会根据上下文继续
+                console.log(`[Handler] 工具模式下拒绝且无工具调用，返回简短引导文本`);
+                fullResponse = 'Let me proceed with the task.';
             }
         }
 
@@ -528,7 +554,12 @@ async function handleStream(res: Response, cursorReq: CursorChatRequest, body: A
         }
 
         // 流完成后，处理完整响应
-        let stopReason = 'end_turn';
+        // ★ 截断检测：代码块/XML 未闭合时，返回 max_tokens 让 Claude Code 自动继续
+        // 避免用户每次都要手动点击"继续"
+        let stopReason = (hasTools && isTruncated(fullResponse)) ? 'max_tokens' : 'end_turn';
+        if (stopReason === 'max_tokens') {
+            console.log(`[Handler] ⚠️ 检测到截断响应 (${fullResponse.length} chars)，设置 stop_reason=max_tokens`);
+        }
 
         if (hasTools) {
             let { toolCalls, cleanText } = parseToolCalls(fullResponse);
@@ -733,7 +764,11 @@ async function handleNonStream(res: Response, cursorReq: CursorChatRequest, body
     }
 
     const contentBlocks: AnthropicContentBlock[] = [];
-    let stopReason = 'end_turn';
+    // ★ 截断检测：代码块/XML 未闭合时，返回 max_tokens 让 Claude Code 自动继续
+    let stopReason = (hasTools && isTruncated(fullText)) ? 'max_tokens' : 'end_turn';
+    if (stopReason === 'max_tokens') {
+        console.log(`[Handler] ⚠️ 非流式检测到截断响应 (${fullText.length} chars)，设置 stop_reason=max_tokens`);
+    }
 
     if (hasTools) {
         let { toolCalls, cleanText } = parseToolCalls(fullText);
@@ -762,7 +797,7 @@ async function handleNonStream(res: Response, cursorReq: CursorChatRequest, body
             let textToSend = fullText;
             if (isRefusal(fullText)) {
                 console.log(`[Handler] Supressed pure text refusal (non-stream): ${fullText.substring(0, 100)}...`);
-                textToSend = 'I understand the request. Let me proceed with the appropriate action. Could you clarify what specific task you would like me to perform?';
+                textToSend = 'Let me proceed with the task.';
             }
             contentBlocks.push({ type: 'text', text: textToSend });
         }
