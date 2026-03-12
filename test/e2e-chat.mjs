@@ -12,6 +12,7 @@
  */
 
 const BASE_URL = `http://localhost:${process.env.PORT || 3010}`;
+const API_KEY = process.env.CURSOR2API_API_KEY || process.env.API_KEY || 'claudecode';
 const MODEL = 'claude-3-5-sonnet-20241022';
 
 // ─── 颜色输出 ───────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ async function chat(messages, { tools, stream = false, label } = {}) {
     const t0 = Date.now();
     const resp = await fetch(`${BASE_URL}/v1/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'dummy' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
         body: JSON.stringify(body),
     });
 
@@ -125,7 +126,7 @@ async function test(name, fn) {
 // ════════════════════════════════════════════════════════════════════
 async function checkServer() {
     try {
-        const r = await fetch(`${BASE_URL}/v1/models`, { headers: { 'x-api-key': 'dummy' } });
+        const r = await fetch(`${BASE_URL}/v1/models`, { headers: { 'x-api-key': API_KEY } });
         return r.ok;
     } catch {
         return false;
@@ -363,7 +364,7 @@ await test('身份问题（不泄露 Cursor）', async () => {
 });
 
 await test('/v1/models 接口', async () => {
-    const r = await fetch(`${BASE_URL}/v1/models`, { headers: { 'x-api-key': 'dummy' } });
+    const r = await fetch(`${BASE_URL}/v1/models`, { headers: { 'x-api-key': API_KEY } });
     const data = await r.json();
     if (!data.data || data.data.length === 0) throw new Error('models 列表为空');
     return `模型: ${data.data.map(m => m.id).join(', ')}`;
@@ -372,7 +373,7 @@ await test('/v1/models 接口', async () => {
 await test('/v1/messages/count_tokens 接口', async () => {
     const r = await fetch(`${BASE_URL}/v1/messages/count_tokens`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'dummy' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
         body: JSON.stringify({ model: MODEL, messages: [{ role: 'user', content: 'Hello world' }] }),
     });
     const data = await r.json();

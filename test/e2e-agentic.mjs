@@ -14,6 +14,7 @@
  */
 
 const BASE_URL = `http://localhost:${process.env.PORT || 3010}`;
+const API_KEY = process.env.CURSOR2API_API_KEY || process.env.API_KEY || 'claudecode';
 const MODEL = 'claude-sonnet-4-5-20251120';  // Claude Code 默认使用的模型
 const MAX_TURNS = 12;  // 最多允许 12 轮工具调用，防止死循环
 
@@ -418,7 +419,7 @@ async function runAgentLoop(userMessage, { label = '', verbose = false, extraToo
         // 发送请求
         const resp = await fetch(`${BASE_URL}/v1/messages`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': 'dummy' },
+            headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
             body: JSON.stringify({
                 model: MODEL,
                 max_tokens: 8096,
@@ -535,7 +536,7 @@ console.log(`\n${C.bold}${C.magenta}  Cursor2API — Claude Code Agentic 压测$
 console.log(info(`  BASE_URL=${BASE_URL}  MODEL=${MODEL}  MAX_TURNS=${MAX_TURNS}`));
 
 try {
-    const r = await fetch(`${BASE_URL}/v1/models`, { headers: { 'x-api-key': 'dummy' } });
+    const r = await fetch(`${BASE_URL}/v1/models`, { headers: { 'x-api-key': API_KEY } });
     if (!r.ok) throw new Error();
     console.log(`\n${ok('服务器在线')}`);
 } catch {

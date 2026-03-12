@@ -6,6 +6,10 @@ port: 3010
 # 请求超时（秒）
 timeout: 120
 
+# 服务访问 API Key
+# 默认值为 claudecode，远程部署后请务必修改为高强度随机字符串
+api_key: "claudecode"
+
 # 代理设置（可选）
 # ⚠️ Node.js fetch 不读取 HTTP_PROXY / HTTPS_PROXY 环境变量，
 #    必须在此处或通过 PROXY 环境变量显式配置代理。

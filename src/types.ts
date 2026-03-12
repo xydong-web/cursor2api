@@ -102,6 +102,7 @@ export interface ParsedToolCall {
 export interface AppConfig {
     port: number;
     timeout: number;
+    apiKey: string;
     proxy?: string;
     cursorModel: string;
     vision?: {

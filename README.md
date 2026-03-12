@@ -51,6 +51,7 @@ npm install
 ### 2. 配置
 
 编辑 `config.yaml`：
+- `api_key` - 服务访问密钥（默认 `claudecode`，公网部署务必修改）
 - `cursor_model` - 使用的模型（默认 `anthropic/claude-sonnet-4.6`）
 - `fingerprint.user_agent` - 浏览器 User-Agent（模拟 Chrome 请求）
 - `vision.enabled` - 开启视觉拦截 (`true` 发送图片前进行降级处理)。
@@ -66,6 +67,7 @@ npm run dev
 
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:3010
+export ANTHROPIC_AUTH_TOKEN=claudecode
 claude
 ```
 
@@ -74,10 +76,18 @@ claude
 在 Cursor IDE 的设置中配置：
 ```
 OPENAI_BASE_URL=http://localhost:3010/v1
+OPENAI_API_KEY=claudecode
 ```
 模型选择 `claude-sonnet-4-20250514` 或其他列出的 Claude 模型名。
 
 > ⚠️ **注意**：Cursor IDE 请优先选用 Claude 模型名（通过 `/v1/models` 查看），避免使用 GPT 模型名以获得最佳兼容。
+
+## API Key 认证
+
+- 服务端默认启用 API Key 校验，默认值为 `claudecode`
+- 支持两种请求头：`x-api-key: <key>` 或 `Authorization: Bearer <key>`
+- 可在 `config.yaml` 中设置 `api_key`，也可用环境变量 `CURSOR2API_API_KEY`（优先）或 `API_KEY` 覆盖
+- 建议远程部署时立即替换默认值为高强度随机字符串
 
 ## 项目结构
 

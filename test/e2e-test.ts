@@ -8,6 +8,7 @@
  */
 
 const API_URL = 'http://localhost:3010/v1/messages';
+const API_KEY = process.env.CURSOR2API_API_KEY || process.env.API_KEY || 'claudecode';
 
 interface TestResult {
     name: string;
@@ -117,7 +118,7 @@ async function runTests() {
     try {
         const resp = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': 'test' },
+            headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
             body: JSON.stringify({
                 model: 'claude-sonnet-4-20250514',
                 max_tokens: 1024,
@@ -142,7 +143,7 @@ async function runTests() {
         
         const resp = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': 'test' },
+            headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
             body: JSON.stringify(longReq)
         });
         assert('长对话服务器响应', resp.ok, `status=${resp.status}`);
@@ -167,7 +168,7 @@ async function runTests() {
     try {
         const resp = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': 'test' },
+            headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
             body: JSON.stringify({
                 model: 'claude-sonnet-4-20250514',
                 max_tokens: 1024,

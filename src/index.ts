@@ -8,6 +8,7 @@
 import 'dotenv/config';
 import { createRequire } from 'module';
 import express from 'express';
+import { createApiKeyMiddleware } from './auth.js';
 import { getConfig } from './config.js';
 import { handleMessages, listModels, countTokens } from './handler.js';
 import { handleOpenAIChatCompletions, handleOpenAIResponses } from './openai-handler.js';
@@ -20,9 +21,6 @@ const { version: VERSION } = require('../package.json') as { version: string };
 const app = express();
 const config = getConfig();
 
-// 解析 JSON body（增大限制以支持 base64 图片，单张图片可达 10MB+）
-app.use(express.json({ limit: '50mb' }));
-
 // CORS
 app.use((_req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -34,6 +32,12 @@ app.use((_req, res, next) => {
     }
     next();
 });
+
+// API Key 鉴权（/health 放行）
+app.use(createApiKeyMiddleware());
+
+// 解析 JSON body（增大限制以支持 base64 图片，单张图片可达 10MB+）
+app.use(express.json({ limit: '50mb' }));
 
 // ==================== 路由 ====================
 
@@ -67,6 +71,10 @@ app.get('/', (_req, res) => {
         name: 'cursor2api',
         version: VERSION,
         description: 'Cursor Docs AI → Anthropic & OpenAI & Cursor IDE API Proxy',
+        auth: {
+            required: Boolean(config.apiKey),
+            methods: ['x-api-key', 'Authorization: Bearer <api-key>'],
+        },
         endpoints: {
             anthropic_messages: 'POST /v1/messages',
             openai_chat: 'POST /v1/chat/completions',
@@ -75,9 +83,9 @@ app.get('/', (_req, res) => {
             health: 'GET /health',
         },
         usage: {
-            claude_code: 'export ANTHROPIC_BASE_URL=http://localhost:' + config.port,
-            openai_compatible: 'OPENAI_BASE_URL=http://localhost:' + config.port + '/v1',
-            cursor_ide: 'OPENAI_BASE_URL=http://localhost:' + config.port + '/v1 (选用 Claude 模型)',
+            claude_code: 'export ANTHROPIC_BASE_URL=http://localhost:' + config.port + ' && export ANTHROPIC_AUTH_TOKEN=<api-key>',
+            openai_compatible: 'OPENAI_BASE_URL=http://localhost:' + config.port + '/v1 && OPENAI_API_KEY=<api-key>',
+            cursor_ide: 'OPENAI_BASE_URL=http://localhost:' + config.port + '/v1 && OPENAI_API_KEY=<api-key> (选用 Claude 模型)',
         },
     });
 });
@@ -100,9 +108,14 @@ app.listen(config.port, () => {
     console.log('  ║  Claude Code:                        ║');
     console.log(`  ║  export ANTHROPIC_BASE_URL=           ║`);
     console.log(`  ║    http://localhost:${config.port}              ║`);
+    console.log('  ║  export ANTHROPIC_AUTH_TOKEN=<key>    ║');
     console.log('  ║  OpenAI / Cursor IDE:                 ║');
     console.log(`  ║  OPENAI_BASE_URL=                     ║`);
     console.log(`  ║    http://localhost:${config.port}/v1            ║`);
     console.log('  ╚══════════════════════════════════════╝');
+    console.log(`  🔐 API Key auth: ${config.apiKey ? 'enabled' : 'disabled'}`);
+    if (config.apiKey === 'claudecode') {
+        console.warn('  ⚠️  当前仍在使用默认 API Key "claudecode"，公网部署前建议立即修改。');
+    }
     console.log('');
 });

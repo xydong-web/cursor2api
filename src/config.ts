@@ -11,6 +11,7 @@ export function getConfig(): AppConfig {
     config = {
         port: 3010,
         timeout: 120,
+        apiKey: 'claudecode',
         cursorModel: 'anthropic/claude-sonnet-4.6',
         fingerprint: {
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
@@ -24,6 +25,7 @@ export function getConfig(): AppConfig {
             const yaml = parseYaml(raw);
             if (yaml.port) config.port = yaml.port;
             if (yaml.timeout) config.timeout = yaml.timeout;
+            if (yaml.api_key !== undefined) config.apiKey = String(yaml.api_key);
             if (yaml.proxy) config.proxy = yaml.proxy;
             if (yaml.cursor_model) config.cursorModel = yaml.cursor_model;
             if (yaml.fingerprint) {
@@ -46,6 +48,8 @@ export function getConfig(): AppConfig {
     // 环境变量覆盖
     if (process.env.PORT) config.port = parseInt(process.env.PORT);
     if (process.env.TIMEOUT) config.timeout = parseInt(process.env.TIMEOUT);
+    if (process.env.CURSOR2API_API_KEY !== undefined) config.apiKey = process.env.CURSOR2API_API_KEY;
+    else if (process.env.API_KEY !== undefined) config.apiKey = process.env.API_KEY;
     if (process.env.PROXY) config.proxy = process.env.PROXY;
     if (process.env.CURSOR_MODEL) config.cursorModel = process.env.CURSOR_MODEL;
 
